@@ -1,0 +1,9 @@
+Flask>=1.0,<=1.1.2
+numpy==1.17.0
+pandas==0.25.0
+neo4j==4.3.4
+requests
+matplotlib
+py2neo
+ipython
+graphistry

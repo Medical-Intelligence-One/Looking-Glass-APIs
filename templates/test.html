@@ -1,0 +1,53 @@
+<!doctype html>
+<html><head>
+<title>Network | Images With Borders</title>
+<script type="text/javascript" src="/static/vis.js"></script>
+<script type="text/javascript" src="/static/canvas2svg.js"></script>
+<link href="/static/vis-network.min.css" rel="stylesheet" type="text/css" />
+<div id="65bd36d4-7dc3-47c7-a76c-11a9504047ac" style="height: 1000px;"></div>
+
+<script type="text/javascript">
+
+    var nodes = [{"id": 0, "label": "Trauma", "group": "Src_Prob", "title": "Node('Src_Prob', name='Trauma')"}, {"id": 4, "label": "Liver Cirrhosis", "group": "Problem", "title": "Node('Problem', name='Liver Cirrhosis')"}, {"id": 3, "label": "Acute Hepatitis", "group": "Problem", "title": "Node('Problem', name='Acute Hepatitis')"}, {"id": 2, "label": "Contusions", "group": "Problem", "title": "Node('Problem', name='Contusions')"}, {"id": 1, "label": "Alchohol", "group": "Src_Prob", "title": "Node('Src_Prob', name='Alchohol')"}, {"id": 13, "label": "Acute Hepatitis", "group": "Problem", "title": "Node('Problem', name='Acute Hepatitis')"}, {"id": 5, "label": "Wounds & Injuries", "group": "Problem", "title": "Node('Problem', name='Wounds & Injuries')"}, {"id": 12, "label": "Daizepam", "group": "Treatment", "title": "Node('Treatment', name='Daizepam')"}, {"id": 10, "label": "Thiamine", "group": "Treatment", "title": "Node('Treatment', name='Thiamine')"}, {"id": 8, "label": "Platlet Count", "group": "Diagnosis", "title": "Node('Diagnosis', name='Platlet Count')"}, {"id": 7, "label": "MCH", "group": "Diagnosis", "title": "Node('Diagnosis', name='MCH')"}, {"id": 6, "label": "Magnesium", "group": "Diagnosis", "title": "Node('Diagnosis', name='Magnesium')"}, {"id": 11, "label": "Folic Acid", "group": "Treatment", "title": "Node('Treatment', name='Folic Acid')"}, {"id": 9, "label": "Sodium", "group": "Diagnosis", "title": "Node('Diagnosis', name='Sodium')"}];
+    var edges = [{"from": 0, "to": 4, "label": "Possible_Problem"}, {"from": 0, "to": 3, "label": "Possible_Problem"}, {"from": 0, "to": 2, "label": "Possible_Problem"}, {"from": 1, "to": 13, "label": "Possible_Problem"}, {"from": 1, "to": 5, "label": "Possible_Problem"}, {"from": 2, "to": 12, "label": "Treatment"}, {"from": 2, "to": 10, "label": "Treatment"}, {"from": 2, "to": 8, "label": "Diagnosis"}, {"from": 2, "to": 7, "label": "Diagnosis"}, {"from": 2, "to": 6, "label": "Diagnosis"}, {"from": 3, "to": 12, "label": "Treatment"}, {"from": 3, "to": 11, "label": "Treatment"}, {"from": 3, "to": 9, "label": "Diagnosis"}, {"from": 3, "to": 6, "label": "Diagnosis"}, {"from": 13, "to": 11, "label": "Treatment"}];
+
+    var container = document.getElementById("65bd36d4-7dc3-47c7-a76c-11a9504047ac");
+
+    var data = {
+        nodes: nodes,
+        edges: edges
+    };
+
+    var options = {
+    nodes: {
+        shape: 'dot',
+        size: 25,
+        font: {
+            size: 14
+        }
+    },
+    edges: {
+        font: {
+            size: 14,
+            align: 'middle'
+        },
+        color: 'gray',
+        arrows: {
+            to: {
+                enabled: true,
+                scaleFactor: 0.5
+            }
+        },
+        smooth: {
+            enabled: false
+        }
+    },
+    physics: {
+        enabled: true
+        }
+    };
+
+    var network = new vis.Network(container, data, options);
+
+</script>
+</head><body></body></html>
