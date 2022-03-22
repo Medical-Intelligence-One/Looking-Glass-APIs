@@ -24,15 +24,15 @@ def autocompleteProblems(startingtext):
     autocomplete_problems_prompts = pd.DataFrame([dict(record) for record in data])
     return autocomplete_problems_prompts
 
-# def autocompleteOrders(startingtext):
-#     query = '''
-#     MATCH (c1:Concept)
-#     WHERE c1.term STARTS WITH '{startingtext}' AND c1.semantic_type IN ["['Clinical Drug']", "['Clinical Attribute']"] 
-#     RETURN DISTINCT(c1.cui) AS `Known_CUI`, c1.term AS `Known_Order`
-#     '''.format(startingtext=startingtext)
-#     data = session.run(query)
-#     autocomplete_orders_prompts = pd.DataFrame([dict(record) for record in data])
-#     return autocomplete_orders_prompts
+def autocompleteOrders(startingtext):
+    query = '''
+    MATCH (c1:Concept)
+    WHERE c1.term STARTS WITH '{startingtext}' AND c1.semantic_type IN ["['Clinical Drug']", "['Clinical Attribute']"] 
+    RETURN DISTINCT(c1.cui) AS `Known_CUI`, c1.term AS `Known_Order`
+    '''.format(startingtext=startingtext)
+    data = session.run(query)
+    autocomplete_orders_prompts = pd.DataFrame([dict(record) for record in data])
+    return autocomplete_orders_prompts
    
 def PotentialComorbidities(cui_prob_list):
     

@@ -32,6 +32,19 @@ def api_autocompleteProblems():
     # result_data.headers.add("Access-Control-Allow-Origin", "*")
     return result_data
 
+@app.route('/api/autocompleteOrders', methods=['GET', 'POST'])
+def api_autocompleteOrders(): 
+    data = request.data
+    parsed = json.loads(data)
+    startingtext = parsed['startsWith'][0]['startsWith']
+    
+    apidata = fetchData.autocompleteOrders(startingtext)
+    result = apidata.to_json(orient="records")
+    parsed = json.loads(result)
+    result_data = jsonify(parsed)
+    # result_data.headers.add("Access-Control-Allow-Origin", "*")
+    return result_data
+
 @app.route('/api/PotentialComorbidities', methods=['GET', 'POST'])
 def api_PotentialComorbidities(): 
     pproblem = request.data
