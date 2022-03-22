@@ -62,7 +62,14 @@ def PotentialComorbidities(cui_prob_list):
     
     # Combine the NLP-derived and ICD-coded dataframes for output
     likely_comorbidities = likely_comorbidities_NLP.append(likely_comorbidities_ICD)
+    if(likely_comorbidities.empty):
+        lst = []
+        df=pd.DataFrame(lst)
+        return df
+
+
     likely_comorbidities.sort_values(by='Score', ascending=False, inplace=True)
+
     
     return likely_comorbidities.head(10)
 
@@ -114,6 +121,12 @@ def AssocOrders(cui_prob_list):
     orders_likely_lab['Type'] = 'Lab'
     orders_likely_procedure['Type'] = 'Procedure'
     AssocOrders = pd.concat([orders_likely_rx, orders_likely_lab, orders_likely_procedure])
+
+    if(AssocOrders.empty):
+        lst = []
+        df=pd.DataFrame(lst)
+        return df
+
     AssocOrders.sort_values('Score', ascending = False, inplace = True)
     AssocOrders = AssocOrders.head(10)
     return AssocOrders

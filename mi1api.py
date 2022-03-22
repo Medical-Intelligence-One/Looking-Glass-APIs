@@ -1,4 +1,5 @@
 import flask
+from flask_cors import CORS
 from flask import Flask, redirect , url_for, render_template, request, jsonify
 from flask.wrappers import Response
 from numpy import roots
@@ -10,6 +11,7 @@ import pandas as pd
 import time
 
 app = Flask(__name__)
+CORS(app)
 app.config["DEBUG"] = True
 
 @app.route('/', methods=['GET'])
@@ -28,7 +30,6 @@ def api_autocompleteProblems():
     parsed = json.loads(result)
     result_data = jsonify(parsed)
     # result_data.headers.add("Access-Control-Allow-Origin", "*")
-#     return jsonify(parsed)
     return result_data
 
 @app.route('/api/PotentialComorbidities', methods=['GET', 'POST'])
@@ -40,13 +41,16 @@ def api_PotentialComorbidities():
         cui_prob_list.append(item['CUI'])
     
     apidata = fetchData.PotentialComorbidities(cui_prob_list)
-    result = apidata.to_json(orient="records")
-    parsed = json.loads(result)
-#     res = json.dumps(parsed, indent=4) 
-    result_data = jsonify(parsed)
+
+    # Handle empty results
+    if(apidata.empty):
+        return jsonify([])
+    else:
+        result = apidata.to_json(orient="records")
+        parsed = json.loads(result) 
+        result_data = jsonify(parsed)
     # result_data.headers.add("Access-Control-Allow-Origin", "*")
-#     return jsonify(parsed)
-    return result_data
+        return result_data
 
 @app.route('/api/AssocOrders', methods=['GET', 'POST'])
 def api_AssocOrders(): 
@@ -61,7 +65,6 @@ def api_AssocOrders():
     parsed = json.loads(result)
     result_data = jsonify(parsed)
     # result_data.headers.add("Access-Control-Allow-Origin", "*")
-#     return jsonify(parsed)
     return result_data
 
 @app.route('/api/LikelyOrders', methods=['GET', 'POST']) 
@@ -88,7 +91,6 @@ def api_LikelyOrders():
     result_data = jsonify(prescriptions=parsed_rx, labs=parsed_lab, procedures=parsed_proc)
     # result_data.headers.add("Access-Control-Allow-Origin", "*")
     return result_data
-#     return jsonify(prescriptions=parsed_rx, labs=parsed_lab, procedures=parsed_proc)
 
 @app.route('/nodedisplay', methods=['GET', 'POST'])
 def api_nodedisplay():
