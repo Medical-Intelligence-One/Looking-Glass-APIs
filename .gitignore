@@ -1,1 +1,3 @@
 ssl/
+/mi1env
+.gitignore
