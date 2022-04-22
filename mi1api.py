@@ -45,6 +45,18 @@ def api_autocompleteOrders():
     # result_data.headers.add("Access-Control-Allow-Origin", "*")
     return result_data
 
+@app.route('/api/autocomplete_rareDz_findings', methods=['GET', 'POST'])
+def api_autocomplete_rareDz_findings(): 
+    data = request.data
+    parsed = json.loads(data)
+    startingtext = parsed['startsWith'][0]['startsWith']
+    
+    apidata = fetchData.autocomplete_rareDz_findings(startingtext)
+    result = apidata.to_json(orient="records")
+    parsed = json.loads(result)
+    result_data = jsonify(parsed)
+    return result_data
+
 @app.route('/api/PotentialComorbidities', methods=['GET', 'POST'])
 def api_PotentialComorbidities(): 
     pproblem = request.data
@@ -103,6 +115,20 @@ def api_LikelyOrders():
     
     result_data = jsonify(prescriptions=parsed_rx, labs=parsed_lab, procedures=parsed_proc)
     # result_data.headers.add("Access-Control-Allow-Origin", "*")
+    return result_data
+
+@app.route('/api/rareDiseaseSearch', methods=['GET', 'POST'])
+def api_rareDiseaseSearch(): 
+    pproblem = request.data
+    parsed = json.loads(pproblem)
+    cui_prob_list=[]
+    for item in parsed['CUIs']:
+        cui_prob_list.append(item['CUI'])
+    
+    apidata = fetchData.rareDiseaseSearch(cui_prob_list)
+    result = apidata.to_json(orient="records")
+    parsed = json.loads(result)
+    result_data = jsonify(parsed)
     return result_data
 
 @app.route('/nodedisplay', methods=['GET', 'POST'])
