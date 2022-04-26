@@ -6,11 +6,15 @@ from bs4 import BeautifulSoup
 import requests
 from datetime import datetime, timedelta, timezone
 from requests.structures import CaseInsensitiveDict
-from jwt import (
-    JWT,
-    jwk_from_pem,
-)
-from jwt.utils import get_int_from_datetime
+from ehr_apis_cerner import cernerPatient, cernerCondition, getAccessTokenExpTime
+# from jwt import (
+#     JWT,
+#     jwk_from_pem,
+# )
+# from jwt.utils import get_int_from_datetime
+import calendar
+import time
+
 # ehr_apis.py
 # Assigning global variables
 accessToken = ""
@@ -18,94 +22,168 @@ patientName = patientMRN = patientDOB = ""
 patientID = patientCategory = patientClinicalStatus = ""
 listOfConditions = []
 authDict = []
+authUrl = patientUrl = conditionUrl = appClientId = ""
+isCernerinDict = False
+# api key, url,
+expTimeForToken = 0
+errorMessage = {
+    'error': 'Try again after some time'
+}
+epicMessage = {
+    'success': "Called Epic"
+}
+cernerMessage = {
+    'success': "Called Cerner"
+}
+
+with open('clientIds.json', 'r') as jsonFile:
+    config = json.load(jsonFile)
+    config = config['clientIds']
+
 
 def authorization():
-    instance = JWT()
-    message = {
-        # Client ID for non-production
-        'iss': 'eac7c715-24c8-448a-9605-8b7226f468c0',
-        'sub': 'eac7c715-24c8-448a-9605-8b7226f468c0',
-        'aud': 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token',
-        'jti': 'f9eaafba-2e49-11ea-8880-5ce0c5aee679',
-        'iat': get_int_from_datetime(datetime.now(timezone.utc)),
-        'exp': get_int_from_datetime(datetime.now(timezone.utc) + timedelta(minutes=5)),
-    }
-
+    # instance = JWT()
+    gmt = time.gmtime()
+    currentEpochTime = calendar.timegm(gmt)
     # Load a RSA key from a PEM file.
     with open('privatekey.pem', 'rb') as fh:
-        signing_key = jwk_from_pem(fh.read())
-
-    compact_jws = instance.encode(message, signing_key, alg='RS384')
-    # print(compact_jws)
-
-    headers = CaseInsensitiveDict()
-    headers['Content-Type'] = 'application/x-www-form-urlencoded'
-
-    data = {
-        'grant_type': 'client_credentials',
-        'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
-        'client_assertion': compact_jws
-    }
-
-    x = requests.post('https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token', headers=headers, data=data)
-    data = json.loads(x.text)
-    getKeys = data.keys()
-    getKeys = "error" in getKeys
-    # print(json.loads(x.text))
-    if not getKeys:
-        global accessToken
-        accessToken = data['access_token']
-
-
-def checkAuthToken(mi1ClientId):
-    check = False
-    global authDict
-    if authDict:
-        for i in authDict:
-            if i[0] == mi1ClientId:
-                check = True
-                # print(i)
-                currentEpochTime = get_int_from_datetime(datetime.now(timezone.utc))
-                if i[2] < currentEpochTime:
-                    authorization()
-                    global accessToken
-                    i[1] = accessToken
-                    i[2] = currentEpochTime + 3600
-
-    if not check:
-        instance = JWT()
-        # Load a RSA key from a PEM file.
-
-        if accessToken == "":
-            authorization()
-        with open('privatekey.pem', 'rb') as fh:
-            signing_key = jwk_from_pem(fh.read())
-        try:
-            decodedToken = instance.decode(accessToken, signing_key, do_verify=False)
-            expTimeForToken = decodedToken['exp']
-            currentEpochTime = get_int_from_datetime(datetime.now(timezone.utc))
-            if currentEpochTime > expTimeForToken:
-                authorization()
-        except:
-            authorization()
-            decodedToken = instance.decode(accessToken, signing_key, do_verify=False)
-            expTimeForToken = decodedToken['exp']
-
-        tempArray = [mi1ClientId, accessToken, expTimeForToken]
-
-        authDict.append(tempArray)
-    # instance = JWT()
-    # # Load a RSA key from a PEM file.
-    # global accessToken
-    # if accessToken == "":
-    #     authorization()
-    # with open('privatekey.pem', 'rb') as fh:
-    #     signing_key = jwk_from_pem(fh.read())
-    # decodedToken = instance.decode(accessToken, signing_key, do_verify=False)
+        signing_key = fh.read()
+    global expTimeForToken
+    # Check if token is expired or not
     # currentEpochTime = get_int_from_datetime(datetime.now(timezone.utc))
-    # tokenExpiryEpochTime = decodedToken['exp']
-    # if currentEpochTime > tokenExpiryEpochTime:
-    #     authorization()
+    if currentEpochTime > expTimeForToken:
+        message = {
+            # Client ID for non-production
+            'iss': appClientId,
+            'sub': appClientId,
+            'aud': authUrl,
+            'jti': 'f9eaafba-2e49-11ea-8880-5ce0c5aee679',
+            'iat': currentEpochTime,
+            'exp': currentEpochTime + 300,
+        }
+
+        compact_jws = jwt.encode(message, signing_key, algorithm='RS384')
+        # print(compact_jws)
+
+        headers = CaseInsensitiveDict()
+        headers['Content-Type'] = 'application/x-www-form-urlencoded'
+
+        data = {
+            'grant_type': 'client_credentials',
+            'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            'client_assertion': compact_jws
+        }
+        try:
+            x = requests.post(authUrl, headers=headers, data=data)
+            data = json.loads(x.text)
+            getKeys = data.keys()
+            getKeys = "error" in getKeys
+            print(json.loads(x.text))
+            if not getKeys:
+                global accessToken
+                accessToken = data['access_token']
+                decodedToken = jwt.decode(accessToken, signing_key, options={"verify_signature": False})
+                expTimeForToken = decodedToken['exp']
+                return True
+            else:
+                return False
+        except:
+            return False
+    else:
+        return True
+
+
+def checkAuthDict(mi1ClientId, type):
+    # currentEpochTime = get_int_from_datetime(datetime.now(timezone.utc))
+    gmt = time.gmtime()
+    currentEpochTime = calendar.timegm(gmt)
+    global errorMessage, isCernerinDict, authDict
+    isCernerinDict = False
+    errorMessage = {
+        'error': "Try again after sometime"
+    }
+    if len(authDict) > 0:
+        # check if data exists in local data
+        for i in authDict:
+            if i['type'] == 'epic' and str(i['mi1ClientId']) == str(mi1ClientId):
+                if i['expTimeForToken'] < currentEpochTime:
+                    checkForSuccessAuth = authorization()
+                    if checkForSuccessAuth:
+                        i['accessToken'] = accessToken
+                        i['expTimeForToken']=expTimeForToken
+                        return epicMessage
+                    else:
+                        return errorMessage
+                return epicMessage
+            if i['type'] == 'cerner':
+                authDict_mi1ClientId = i['mi1ClientId']
+                if str(authDict_mi1ClientId) == str(mi1ClientId):
+                    isCernerinDict = True
+                    return cernerMessage
+
+    # check  for cerner type
+    if type == "cerner":
+        isCernerinDict = False
+
+        return cernerMessage
+
+    # check for epic type
+    if type == "epic":
+        if expTimeForToken < currentEpochTime:
+            checkForSuccessAuth = authorization()
+            if checkForSuccessAuth:
+                tempJson = {
+                    "type": type,
+                    "mi1ClientId": mi1ClientId,
+                    "accessToken": accessToken,
+                    "expTimeForToken": expTimeForToken,
+                    "AuthUrl": authUrl,
+                    "PatientReadUrl": patientUrl,
+                    "ConditionReadUrl": conditionUrl
+                }
+                authDict.append(tempJson)
+                return epicMessage
+            else:
+                return errorMessage
+        else:
+            tempJson = {
+                "type": type,
+                "mi1ClientId": mi1ClientId,
+                "accessToken": accessToken,
+                "expTimeForToken": expTimeForToken,
+                "AuthUrl": authUrl,
+                "PatientReadUrl": patientUrl,
+                "ConditionUrl": conditionUrl
+            }
+            authDict.append(tempJson)
+            return epicMessage
+
+
+def checkAuthToken(mi1ClientId, patientId):
+    global authDict, accessToken, expTimeForToken, appClientId
+    getFilterId = [x for x in config if x['mi1ClientId'] == mi1ClientId]
+    if getFilterId:
+        global authUrl, patientUrl, conditionUrl
+        authUrl = getFilterId[0]['AuthUrl']
+        patientUrl = getFilterId[0]['PatientReadUrl']
+        conditionUrl = getFilterId[0]['ConditionReadUrl']
+        appClientId = getFilterId[0]['appClientId']
+        getMessage = checkAuthDict(mi1ClientId, getFilterId[0]['type'])
+        return getMessage
+    # for i in config:
+    #     if str(i['mi1ClientId']) == str(mi1ClientId):
+    #         global authUrl, patientUrl, conditionUrl
+    #         authUrl = i['AuthUrl']
+    #         patientUrl = i['PatientReadUrl']
+    #         conditionUrl = i['ConditionReadUrl']
+    #         appClientId = i['appClientId']
+    #         getMessage = checkAuthDict(mi1ClientId, i['type'])
+    #         return getMessage
+    global errorMessage
+    errorMessage = {
+        'error': "Invalid MI1 Client ID"
+    }
+    return errorMessage
 
 
 def setHeaders(accessToken):
@@ -122,76 +200,125 @@ def requestData(url, accessToken):
 
 
 def getPatientData(patientId, mi1ClientId):
-    checkAuthToken(mi1ClientId)
-    patientData = requestData("https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/Patient/" + patientId,
-                              accessToken)
-    soup = BeautifulSoup(patientData.content, 'html5lib')
+    global authUrl, patientUrl, conditionUrl, appClientId
+    authUrl = patientUrl = conditionUrl = appClientId = ""
+    getMessage = checkAuthToken(mi1ClientId, patientId)
+    # print(authDict)
+    if getMessage is epicMessage:
+        patientData = requestData(patientUrl + patientId,
+                                  accessToken)
 
-    # Getting patient name from xml
-    getName = soup.find("name")
-    for rowName in getName.find_all('text'):
-        # Getting name
-        global patientName
-        patientName = rowName['value']
-        # print("Name: ", rowName['value'])
+        soup = BeautifulSoup(patientData.content, 'html5lib')
 
-    # Getting patient mrn from xml
-    getMRN = soup.find_all("identifier")
+        # Getting patient name from xml
+        getName = soup.find("name")
+        try:
+            for rowName in getName.find_all('text'):
+                # Getting name
+                global patientName
+                patientName = rowName['value']
+                # print("Name: ", rowName['value'])
 
-    for rowMRN in getMRN:
+            # Getting patient mrn from xml
+            getMRN = soup.find_all("identifier")
 
-        getText = rowMRN.find('text')
-        if getText['value'] == "EPI":
-            mrnValue = rowMRN.find('value')
-            global patientMRN
-            patientMRN = mrnValue['value']
-            # print("MRN: ", mrnValue['value'])
+            for rowMRN in getMRN:
 
-    # Getting date of birth from xml
-    getDOB = soup.find('birthdate')
-    global patientDOB
-    patientDOB = getDOB['value']
-    # print("DOB: ", getDOB['value'])
-    PatientDatainJson = {
-        "Name": patientName,
-        "MRN": patientMRN,
-        "DOB": patientDOB,
-    }
-    return PatientDatainJson
+                getText = rowMRN.find('text')
+                if getText['value'] == "EPI":
+                    mrnValue = rowMRN.find('value')
+                    global patientMRN
+                    patientMRN = mrnValue['value']
+                    # print("MRN: ", mrnValue['value'])
+
+            # Getting date of birth from xml
+            getDOB = soup.find('birthdate')
+            global patientDOB
+            patientDOB = getDOB['value']
+            # print("DOB: ", getDOB['value'])
+            PatientDatainJson = {
+                "Name": patientName,
+                "MRN": patientMRN,
+                "DOB": patientDOB,
+            }
+            tempList = [PatientDatainJson]
+            return tempList
+        except:
+            return []
+    elif getMessage is cernerMessage:
+        getCernerRes = cernerPatient(mi1ClientId, patientId, authUrl, patientUrl)
+        getData = getAccessTokenExpTime(isCernerinDict, mi1ClientId, authUrl, patientUrl, conditionUrl, authDict)
+        if getData is not None:
+            authDict.append(getData)
+        return getCernerRes
+    else:
+        return errorMessage
 
 
 def getPatientCondition(patientId, category, clinical_status, mi1ClientId):
-    checkAuthToken(mi1ClientId)
-    conditionJson = []
-    global accessToken
-    conditionData = requestData(
-        "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/Condition?patient=" + patientId + "&category=" + category + "&clinical-status=" + clinical_status + '"',
-        accessToken)
-    # soup = BeautifulSoup(conditionData.content, 'html5lib')
-    convertedData = xmltodict.parse(conditionData.content)
-    convertedData = json.dumps(convertedData)
-    convertedData = json.loads(convertedData)
-    try:
-        # print(convertedData['Bundle']['entry'][0]['resource']['Condition']['code']['coding'][1]['code']['@value'],
-        #       convertedData['Bundle']['entry'][0]['resource']['Condition']['code']['text']['@value'])
-
-        text = convertedData['Bundle']['entry'][0]['resource']['Condition']['code']['text']['@value']
-        code = convertedData['Bundle']['entry'][0]['resource']['Condition']['code']['coding'][1]['code']['@value']
-        sampleVar = {
-            "Code": code,
-            "Text": text
-        }
-        conditionJson.append(sampleVar)
-    except:
+    global authUrl, patientUrl, conditionUrl, appClientId
+    authUrl = patientUrl = conditionUrl = appClientId = ""
+    getMessage = checkAuthToken(mi1ClientId, patientId)
+    print(authDict)
+    if getMessage is epicMessage:
         conditionJson = []
+        global accessToken
+        conditionData = requestData(
+            conditionUrl + patientId + "&category=" + category + "&clinical-status=" + clinical_status + '"',
+            accessToken)
+
+        convertedData = xmltodict.parse(conditionData.content)
+        convertedData = json.dumps(convertedData)
+        convertedData = json.loads(convertedData)
+
+        try:
+            for i in convertedData['Bundle']['entry']:
+
+                # Filter code
+                getKeys = i['resource'].keys()
+                checkConditionKey = "Condition" in getKeys
+                if checkConditionKey:
+                    for j in i['resource']['Condition']['code']['coding']:
+                        if j['system']['@value'] == 'urn:oid:2.16.840.1.113883.6.96':
+                            code = j['code']['@value']
+                            # print(code)
+
+                    # Get Text
+                    text = i['resource']['Condition']['code']['text']['@value']
+                    # print(text)
+                    sampleVar = {
+                        "Code": code,
+                        "Text": text
+                    }
+                    conditionJson.append(sampleVar)
+
+        except:
+            conditionJson = []
+
+        return conditionJson
+
+    elif getMessage is cernerMessage:
+        getCernerRes = cernerCondition(mi1ClientId, patientId, authUrl, conditionUrl)
+        getData = getAccessTokenExpTime(isCernerinDict, mi1ClientId, authUrl, patientUrl, conditionUrl, authDict)
+        if getData is not None:
+            authDict.append(getData)
+        return getCernerRes
+    else:
+        return errorMessage
 
 
-    return conditionJson
+if __name__ == '__main__':
+    # epic
+    PatientInfo = getPatientData("eq081-VQEgP8drUUqCWzHfw3", '123456789')
+    print(PatientInfo)
 
+    # epic
+    PatientConditionInfo = getPatientCondition("egqBHVfQlt4Bw3XGXoxVxHg3", "problem-list-item", "active", '123456789')
+    print(PatientConditionInfo)
 
-# if __name__ == '__main__':
-    # PatientInfo = getPatientData("eq081-VQEgP8drUUqCWzHfw3", "123456789")
-    # print(PatientInfo)
-
-    # PatientConditionInfo = getPatientCondition("eq081-VQEgP8drUUqCWzHfw3", "problem-list-item", "active", '123456789')
+    # Cerner
+    # response = getPatientData('12724067','1122334455')
+    # print(response)
+    #
+    # PatientConditionInfo = getPatientCondition("p73077203", "problem-list-item", "active", '1122334455')
     # print(PatientConditionInfo)
