@@ -34,6 +34,17 @@ def autocompleteOrders(startingtext):
     autocomplete_orders_prompts = pd.DataFrame([dict(record) for record in data])
     return autocomplete_orders_prompts
    
+def autocomplete_rareDz_findings(startingtext):
+    query = '''
+    MATCH (c1:Concept)
+    MATCH (h:HPOentity)
+    WHERE c1.term STARTS WITH '{startingtext}' and c1.cui = h.umls_id
+    RETURN DISTINCT(c1.cui) AS `Clinical_Finding_CUI`, c1.term AS `Clinical_Finding`
+    '''.format(startingtext=startingtext)
+    data = session.run(query)
+    autocomplete_rareDz_findings = pd.DataFrame([dict(record) for record in data])
+    return autocomplete_rareDz_findings
+
 def PotentialComorbidities(cui_prob_list):
     
     # Get NLP-derived problem matches
@@ -131,6 +142,52 @@ def AssocOrders(cui_prob_list):
     AssocOrders = AssocOrders.head(10)
     return AssocOrders
     
+def rareDiseaseSearch(cui_finding_list):
+
+    # Get a list of the most likely diseases and the data used to calculate likelihood
+    query = '''
+    MATCH (pos_f:HPOentity)-[given_r:ASSOC_WITH]->(d:OrphEntity)<-[total_r:ASSOC_WITH]-(total_f:HPOentity)
+
+    // Get a list of diseases which have at least one finding in the list of CUIs for given findings
+    // Filter out any diseases which are excluded by a finding in the list of given findings
+    WHERE pos_f.umls_id IN {cui_finding_list} AND d.prevalence_estimate_upper IS NOT NULL AND (given_r.diagnostic_criterion_attribute IS NULL OR NOT given_r.diagnostic_criterion_attribute = 'Exclusion_DC')
+
+    // Get lists of positive findings and relationships to positive findings
+    WITH d.name AS Disease, d.umls_id AS Disease_CUI, d.definition AS Disease_Definition, d.prevalence_estimate_upper AS Disease_Prevalence, collect(DISTINCT(pos_f.name)) AS Positive_Findings, collect(DISTINCT(pos_f.umls_id)) AS Pos_Find_CUIs, collect(DISTINCT(total_r)) AS All_Find_Rel, collect(DISTINCT(total_f.name)) AS all_dz_findings, collect(DISTINCT(total_f.umls_id)) AS all_dz_CUIs, collect(DISTINCT(given_r)) AS Pos_Find_Rel
+
+    // Get list of approx frequencies for positive findings
+    // WITH collect(given_r.approx_frequency) AS Pos_Find_Rel, Disease, Disease_CUI, Disease_Definition, all_dz_findings, all_dz_CUIs, Disease_Prevalence, Positive_Findings, Pos_Find_CUIs, All_Find_Rel
+
+    // Get list of relationships to negative findings
+    WITH [x IN All_Find_Rel WHERE NOT x IN Pos_Find_Rel] AS Neg_Find_Rel, Pos_Find_Rel, Disease, Disease_CUI, Disease_Definition, all_dz_findings, all_dz_CUIs, Disease_Prevalence, Positive_Findings, Pos_Find_CUIs
+
+    // Get list of negative findings
+    WITH [x IN all_dz_findings WHERE NOT x in Positive_Findings] AS Negative_Findings, [x IN all_dz_CUIs WHERE NOT x in Pos_Find_CUIs] AS Neg_Find_CUIs, Neg_Find_Rel, Pos_Find_Rel, Disease, Disease_CUI, Disease_Definition, Disease_Prevalence, Positive_Findings, Pos_Find_CUIs
+
+    UNWIND Pos_Find_Rel as Pos_Find_Rel_List
+
+    UNWIND
+      CASE
+        WHEN Neg_Find_Rel = [] THEN [null]
+        ELSE Neg_Find_Rel
+      END AS Neg_Find_Rel_List
+
+    // Calculate the sum of approximate frequency values for all negative findings for each disease, changing null to 0 when no relationships to negative findings exist
+    WITH Disease, Disease_CUI, Disease_Definition, Disease_Prevalence, Positive_Findings, Pos_Find_CUIs, Negative_Findings, Neg_Find_CUIs, Pos_Find_Rel_List, sum(toFloat(COALESCE(Neg_Find_Rel_List.approx_frequency, 0))) AS Sum_Neg_Find_Freq, collect(toFloat(Neg_Find_Rel_List.approx_frequency)) AS Neg_Find_Freqs
+
+    // Calculate the sum of approximate frequency values for all positive findings for each disease
+    WITH Disease, Disease_CUI, Disease_Definition, Disease_Prevalence, Positive_Findings, Pos_Find_CUIs, Negative_Findings, Neg_Find_CUIs, sum(toFloat(Pos_Find_Rel_List.approx_frequency)) AS Sum_Pos_Find_Freq, collect(toFloat(Pos_Find_Rel_List.approx_frequency)) AS Pos_Find_Freqs, Sum_Neg_Find_Freq, Neg_Find_Freqs
+
+    // Multiply the disease prevalence by the difference between the sum of frequencies of positive and negative findings
+    RETURN Disease, Disease_CUI, Disease_Definition, Disease_Prevalence, Positive_Findings, Pos_Find_CUIs, Pos_Find_Freqs, Negative_Findings, Neg_Find_CUIs, Neg_Find_Freqs, ((Sum_Pos_Find_Freq - Sum_Neg_Find_Freq) * -log(Disease_Prevalence)) AS Probability
+
+    ORDER BY Probability DESC
+    LIMIT 10
+    '''.format(cui_finding_list = cui_finding_list)
+    data = session.run(query)
+    mostLikelyRareDiseases = pd.DataFrame([dict(record) for record in data])
+    
+    return mostLikelyRareDiseases
 
 def nodedisplay():
 #     g=Graph('neo4j+s://1d23f23f.databases.neo4j.io:7687', auth=("neo4j", "FUjaBMKHBigyHtjaD9il71GV4GVGAsi7YBWtIBn-Cyo"))
