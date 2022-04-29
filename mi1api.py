@@ -9,7 +9,7 @@ import json
 import requests
 import pandas as pd
 import time
-from ehr_apis import getPatientData, getPatientCondition
+from ehr_apis_epic import getPatientData, getPatientCondition
 
 app = Flask(__name__)
 CORS(app)

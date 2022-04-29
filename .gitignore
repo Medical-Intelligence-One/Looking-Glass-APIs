@@ -1,3 +1,4 @@
 ssl/
 /mi1env
+/__pycache__
 .gitignore
