@@ -4,13 +4,12 @@ import xmltodict
 from bs4 import BeautifulSoup
 import requests
 from requests.structures import CaseInsensitiveDict
-from ehr_apis_cerner import cernerPatient, cernerCondition
+from ehr_apis_cerner import cernerPatient, cernerCondition, Create_Check_Cerner_Authorization
 import calendar
 import time
 
 # Assigning global variables
 authDict = []
-
 errorMessage = {
     'error': 'Try again after some time'
 }
@@ -63,52 +62,34 @@ def Create_Check_Epic_Authorization(authUrl, appClientId, accessToken, expTimeFo
                 accessToken = data['access_token']
                 decodedToken = jwt.decode(accessToken, options={"verify_signature": False})
                 expTimeForToken = decodedToken['exp']
-                return True, [{
+                return True, {
                     'accessToken': accessToken,
-                    'expTimeForToken': expTimeForToken}]
+                    'expTimeForToken': expTimeForToken}
             else:
-                return False, [None, None]
+                return False, {
+                    'accessToken': None,
+                    'expTimeForToken': 0}
         except:
-            return False, [None, None]
+            return False, {
+                'accessToken': None,
+                'expTimeForToken': 0}
     else:
-        return True, [{
+        return True, {
             'accessToken': accessToken,
-            'expTimeForToken': expTimeForToken}]
+            'expTimeForToken': expTimeForToken}
 
 
 # Checking and creating local dictionary
-# def checkAuthDict(mi1ClientId, patientId, type, authUrl, patientUrl, conditionUrl, appClientId):
-def checkAuthDict(mi1ClientId, patientId, filteredArr):
+def checkAuthDict(mi1ClientId, filteredArr):
     # get current time in epoch format
     gmt = time.gmtime()
     currentEpochTime = calendar.timegm(gmt)
 
     global authDict
-    if len(authDict) > 0:
-        # check if data exists in local data
-        # getFilterAuth = [x for x in authDict if x['mi1ClientId'] == mi1ClientId]
-        # if getFilterAuth[0]['type']=='epic':
-        for i in authDict:
-            if i['type'] == 'epic' and str(i['mi1ClientId']) == str(mi1ClientId):
-                if i['expTimeForToken'] < currentEpochTime:
-                    Is_SuccessAuth, getAuthData = Create_Check_Epic_Authorization(filteredArr['AuthUrl'],
-                                                                                  filteredArr['appClientId'],
-                                                                                  i['accessToken'],
-                                                                                  i['expTimeForToken'])
-                    if Is_SuccessAuth:
-                        i['accessToken'] = getAuthData[0]['accessToken']
-                        i['expTimeForToken'] = getAuthData[0]['expTimeForToken']
-                        return i
-                    else:
-                        return errorMessage
-                return i
-            if i['type'] == 'cerner' and str(i['mi1ClientId']) == str(mi1ClientId):
-                return i
+    getFilterAuth = [x for x in authDict if x['mi1ClientId'] == mi1ClientId]
 
-    # data does not exists in our local dictionary
-    # check if is of cerner type
-    if filteredArr['type'] == "cerner":
-        return {
+    if len(getFilterAuth) == 0:
+        authDict.append({
             'type': filteredArr['type'],
             'mi1ClientId': mi1ClientId,
             'accessToken': '',
@@ -117,31 +98,34 @@ def checkAuthDict(mi1ClientId, patientId, filteredArr):
             'AuthUrl': filteredArr['AuthUrl'],
             'PatientReadUrl': filteredArr['PatientReadUrl'],
             'ConditionReadUrl': filteredArr['ConditionReadUrl']
-        }
+        })
 
-    # check if it of epic type
-    if filteredArr['type'] == "epic":
-
-        # if expired updating the exptime for token and accesstoken
-        Is_SuccessAuth, getAuthData = Create_Check_Epic_Authorization(filteredArr['AuthUrl'],
-                                                                      filteredArr['appClientId'], "", 0)
-
-        if Is_SuccessAuth:
-            tempJson = {
-                "type": filteredArr['type'],
-                "mi1ClientId": mi1ClientId,
-                "accessToken": getAuthData[0]['accessToken'],
-                "expTimeForToken": getAuthData[0]['expTimeForToken'],
-                "AuthUrl": filteredArr['AuthUrl'],
-                "PatientReadUrl": filteredArr['PatientReadUrl'],
-                "ConditionReadUrl": filteredArr['ConditionReadUrl'],
-                "appClientId": filteredArr['appClientId']
-            }
-            authDict.append(tempJson)
-            return tempJson
-        else:
-            return errorMessage
-
+    for i in authDict:
+        if i['type'] == 'epic' and str(i['mi1ClientId']) == str(mi1ClientId):
+            if i['expTimeForToken'] < currentEpochTime:
+                Is_SuccessAuth, getAuthData = Create_Check_Epic_Authorization(filteredArr['AuthUrl'],
+                                                                              filteredArr['appClientId'],
+                                                                              i['accessToken'],
+                                                                              i['expTimeForToken'])
+                if Is_SuccessAuth:
+                    i['accessToken'] = getAuthData['accessToken']
+                    i['expTimeForToken'] = getAuthData['expTimeForToken']
+                    return i
+                else:
+                    return errorMessage
+            return i
+        if i['type'] == 'cerner' and str(i['mi1ClientId']) == str(mi1ClientId):
+            if i['expTimeForToken'] < currentEpochTime:
+                Is_SuccessAuth, getAuthData = Create_Check_Cerner_Authorization(filteredArr['AuthUrl'],
+                                                                                i['accessToken'],
+                                                                                i['expTimeForToken'])
+                if Is_SuccessAuth:
+                    i['accessToken'] = getAuthData['accessToken']
+                    i['expTimeForToken'] = getAuthData['expTimeForToken']
+                    return i
+                else:
+                    return errorMessage
+            return i
     return errorMessage
 
 
@@ -150,10 +134,7 @@ def checkLocalDictAuth(mi1ClientId, patientId):
 
     # check for if client exists in the database or not
     if getFilterId:
-        # getMessage = checkAuthDict(mi1ClientId, patientId, getFilterId[0]['type'], getFilterId[0]['AuthUrl'],
-        #                            getFilterId[0]['PatientReadUrl'], getFilterId[0]['ConditionReadUrl'],
-        #                            getFilterId[0]['appClientId'])
-        getMessage = checkAuthDict(mi1ClientId, patientId, getFilterId[0])
+        getMessage = checkAuthDict(mi1ClientId, getFilterId[0])
         return getMessage
 
     errorForInvalidClientId = {
@@ -222,15 +203,8 @@ def getPatientData(patientId, mi1ClientId):
 
     # elif getMessage is cernerMessage:
     elif getType and getMessage['type'] == 'cerner':
-        global authDict
-        getCernerRes, updatedAuthDict = cernerPatient(mi1ClientId, patientId, getMessage,
-                                                      authDict)
-
-
-        # updating cerner dict our main authDict
-        authDict = updatedAuthDict
+        getCernerRes = cernerPatient(patientId, getMessage)
         return getCernerRes
-
     else:
         return getMessage
 
@@ -238,7 +212,6 @@ def getPatientData(patientId, mi1ClientId):
 def getPatientCondition(patientId, category, clinical_status, mi1ClientId):
     global authDict
     getMessage = checkLocalDictAuth(mi1ClientId, patientId)
-    print(authDict)
     getkeys = getMessage.keys()
     getType = 'type' in getkeys
 
@@ -274,25 +247,18 @@ def getPatientCondition(patientId, category, clinical_status, mi1ClientId):
                         "Text": text
                     }
                     conditionJson.append(sampleVar)
-
+                    print(authDict)
         except:
             conditionJson = []
 
         return conditionJson
 
     elif getType and getMessage['type'] == 'cerner':
-
-        getCernerRes, updatedAuthDict = cernerCondition(mi1ClientId, patientId, getMessage,
-                                                        authDict)
-        # getData = checkLocalAuthDict(mi1ClientId, getMessage['AuthUrl'], getMessage['PatientReadUrl'],
-        #                              getMessage['ConditionReadUrl'], authDict)
-
-        # updating cerner dict our main authDict
-        authDict = updatedAuthDict
+        getCernerRes = cernerCondition(patientId, getMessage)
+        print(authDict)
         return getCernerRes
     else:
         return getMessage
-
 
 
 # if __name__ == '__main__':

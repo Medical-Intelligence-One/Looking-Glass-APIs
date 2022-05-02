@@ -27,7 +27,7 @@ def authHeaders(accessToken):
     return authHeaders
 
 
-def cernerAuth(accessToken, expTimeForToken, authUrl):
+def Create_Check_Cerner_Authorization(authUrl, accessToken, expTimeForToken):
     gmt = time.gmtime()
     currentEpochTime = calendar.timegm(gmt)
 
@@ -51,106 +51,64 @@ def cernerAuth(accessToken, expTimeForToken, authUrl):
             accessToken = response['access_token']
             decodedToken = jwt.decode(accessToken, options={"verify_signature": False})
             expTimeForToken = decodedToken['exp']
-            return True, [{
+            return True, {
                 'accessToken': accessToken,
-                'expTimeForToken': expTimeForToken}]
+                'expTimeForToken': expTimeForToken}
         else:
-            return True, [{
+            return True, {
                 'accessToken': accessToken,
-                'expTimeForToken': expTimeForToken}]
+                'expTimeForToken': expTimeForToken}
     except:
-        return False, [None, None]
+        return False, {
+            'accessToken': None, 'expTimeForToken': 0}
 
 
-def cernerAuthDict(cernerId, filterArr, authDict):
-    # get current time in epoch format
-    gmt = time.gmtime()
-    currentEpochTime = calendar.timegm(gmt)
-    # check if our local dictionary has expired token
-    if filterArr['expTimeForToken'] < currentEpochTime:
-        Is_SuccessAuth, getAuthData = cernerAuth(filterArr['accessToken'], filterArr['expTimeForToken'],
-                                                 filterArr['AuthUrl'])
-        if Is_SuccessAuth:
-            # Filter authDict to check for Id
-            getFilterId = [x for x in authDict if x['mi1ClientId'] == cernerId]
-            # for loop
-            if getFilterId:
-                # updating in the local dictionary
-                getFilterId[0]['accessToken'] = getAuthData[0]['accessToken']
-                getFilterId[0]['expTimeForToken'] = getAuthData[0]['expTimeForToken']
-                return Is_SuccessAuth, getFilterId[0], authDict
-            else:
-                # updating the local array that is to be added
-                filterArr['accessToken'] = getAuthData[0]['accessToken']
-                filterArr['expTimeForToken'] = getAuthData[0]['expTimeForToken']
-                authDict.append(filterArr)
-                return Is_SuccessAuth, filterArr, authDict
-        else:
-            return False, filterArr, authDict
-    return True, filterArr, authDict
+def cernerPatient(patientId, filterArr):
+    headers = authHeaders(filterArr['accessToken'])
 
-
-def cernerPatient(mi1ClientId, patientId, filterArr, authDict):
-    # first var return is to check Authorisation
-    # second var return our filtered array containing cerner data
-    # third var our local authDict
-    checkAuth, updatedfilterArr, updatedAuthDict = cernerAuthDict(mi1ClientId, filterArr, authDict)
-
-    headers = authHeaders(updatedfilterArr['accessToken'])
-    if checkAuth:
-        cernerPatientData = requests.get(updatedfilterArr['PatientReadUrl'] + str(patientId), headers=headers)
-        cernerPatientData = cernerPatientData.json()
-        getKeys = cernerPatientData.keys()
-        isNameInData = 'name' in getKeys
-        isDobInData = 'birthDate' in getKeys
-        if isNameInData and isDobInData:
-            name = cernerPatientData['name'][0]['text']
-            dob = cernerPatientData['birthDate']
-            sample_var = {
-                "Name": name,
-                "DOB": dob
-            }
-            sample_var = [sample_var]
-            return sample_var, updatedAuthDict
-        else:
-            return [], updatedAuthDict
+    cernerPatientData = requests.get(filterArr['PatientReadUrl'] + str(patientId), headers=headers)
+    cernerPatientData = cernerPatientData.json()
+    getKeys = cernerPatientData.keys()
+    isNameInData = 'name' in getKeys
+    isDobInData = 'birthDate' in getKeys
+    if isNameInData and isDobInData:
+        name = cernerPatientData['name'][0]['text']
+        dob = cernerPatientData['birthDate']
+        sample_var = {
+            "Name": name,
+            "DOB": dob
+        }
+        sample_var = [sample_var]
+        return sample_var
     else:
-        return [], updatedAuthDict
+        return []
 
 
-def cernerCondition(cernerId, patientId, filterArr, authDict):
-    # first var return is to check Authorisation
-    # second var return our filter array containing cerner data
-    # third var our local authDict
-    checkAuth, updatedfilterArr, updatedAuthDict = cernerAuthDict(cernerId, filterArr, authDict)
-
-    if checkAuth:
-        conditionList = []
-        headers = authHeaders(updatedfilterArr['accessToken'])
-        cernerConditionData = requests.get(updatedfilterArr['ConditionReadUrl'] + str(patientId), headers=headers)
-        cernerConditionData = cernerConditionData.json()
-        getConditionKeys = cernerConditionData.keys()
-        isCodeInData = 'code' in getConditionKeys
-        if isCodeInData:
-            try:
-                for i in cernerConditionData['code']['coding']:
-                    PatientCondition = i['display']
-                    ConditionCode = i['code']
-                    temp_obj = {
-                        "Code": ConditionCode,
-                        "Text": PatientCondition
-                    }
-                    conditionList.append(temp_obj)
-            except:
-                conditionList = []
-        return conditionList, updatedAuthDict
-    else:
-        return [], updatedAuthDict
+def cernerCondition(patientId, filterArr):
+    conditionList = []
+    headers = authHeaders(filterArr['accessToken'])
+    cernerConditionData = requests.get(filterArr['ConditionReadUrl'] + str(patientId), headers=headers)
+    cernerConditionData = cernerConditionData.json()
+    getConditionKeys = cernerConditionData.keys()
+    isCodeInData = 'code' in getConditionKeys
+    if isCodeInData:
+        try:
+            for i in cernerConditionData['code']['coding']:
+                PatientCondition = i['display']
+                ConditionCode = i['code']
+                temp_obj = {
+                    "Code": ConditionCode,
+                    "Text": PatientCondition
+                }
+                conditionList.append(temp_obj)
+        except:
+            conditionList = []
+    return conditionList
 
 
 # if __name__ == '__main__':
-#     response = cernerPatient('1122334455', '12724067', config[1]['AuthUrl'], config[1]['PatientReadUrl'])
+#     response = cernerPatient('12724067', {'type': 'cerner', 'mi1ClientId': '1122334455', 'accessToken': 'eyJraWQiOiIyMDIyLTA0LTI4VDE2OjEzOjE0LjY0Mi5lYyIsInR5cCI6IkpXVCIsImFsZyI6IkVTMjU2In0.eyJpc3MiOiJodHRwczpcL1wvYXV0aG9yaXphdGlvbi5jZXJuZXIuY29tXC8iLCJleHAiOjE2NTEyODc1OTIsImlhdCI6MTY1MTI4Njk5MiwianRpIjoiZThmOGRkNDctMjM2Ni00MWZlLTg0MjctMzRhY2IwY2YwNTk1IiwidXJuOmNlcm5lcjphdXRob3JpemF0aW9uOmNsYWltczp2ZXJzaW9uOjEiOnsidmVyIjoiMS4wIiwicHJvZmlsZXMiOnsic21hcnQtdjEiOnsiYXpzIjoic3lzdGVtXC9PYnNlcnZhdGlvbi5yZWFkIHN5c3RlbVwvQ29uZGl0aW9uLnJlYWQgc3lzdGVtXC9QYXRpZW50LnJlYWQifX0sImNsaWVudCI6eyJuYW1lIjoiTUkxX0Vub2xhX0FQSSIsImlkIjoiNzEwYTIwMWQtZTM0YS00NTFiLTk0OGUtYWUxODQ3MjczYzY4In0sInRlbmFudCI6ImVjMjQ1OGYyLTFlMjQtNDFjOC1iNzFiLTBlNzAxYWY3NTgzZCJ9fQ.l-YGcy5btDfTluUO0e0r2pLHwoUpZnxbDkOtovcm5zUvYO-gFLuEs3QpkBLQ8uTVsdi-KWn3G8YfQVL2bzxYEg', 'expTimeForToken': 1651287592, 'appClientId': 'ec2458f2-1e24-41c8-b71b-0e701af7583d', 'AuthUrl': 'https://authorization.cerner.com/tenants/ec2458f2-1e24-41c8-b71b-0e701af7583d/', 'PatientReadUrl': 'https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d/Patient/', 'ConditionReadUrl': 'https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d/Condition/'})
 #     print(response)
 
-#     conditionResponse = cernerCondition('1122334455', 'p73077203', config[1]['AuthUrl'], config[1]['ConditionReadUrl'])
+#     conditionResponse = cernerCondition('p73077203', {'type': 'cerner', 'mi1ClientId': '1122334455', 'accessToken': 'eyJraWQiOiIyMDIyLTA0LTI4VDE2OjEzOjE0LjY0Mi5lYyIsInR5cCI6IkpXVCIsImFsZyI6IkVTMjU2In0.eyJpc3MiOiJodHRwczpcL1wvYXV0aG9yaXphdGlvbi5jZXJuZXIuY29tXC8iLCJleHAiOjE2NTEyODc1OTIsImlhdCI6MTY1MTI4Njk5MiwianRpIjoiZThmOGRkNDctMjM2Ni00MWZlLTg0MjctMzRhY2IwY2YwNTk1IiwidXJuOmNlcm5lcjphdXRob3JpemF0aW9uOmNsYWltczp2ZXJzaW9uOjEiOnsidmVyIjoiMS4wIiwicHJvZmlsZXMiOnsic21hcnQtdjEiOnsiYXpzIjoic3lzdGVtXC9PYnNlcnZhdGlvbi5yZWFkIHN5c3RlbVwvQ29uZGl0aW9uLnJlYWQgc3lzdGVtXC9QYXRpZW50LnJlYWQifX0sImNsaWVudCI6eyJuYW1lIjoiTUkxX0Vub2xhX0FQSSIsImlkIjoiNzEwYTIwMWQtZTM0YS00NTFiLTk0OGUtYWUxODQ3MjczYzY4In0sInRlbmFudCI6ImVjMjQ1OGYyLTFlMjQtNDFjOC1iNzFiLTBlNzAxYWY3NTgzZCJ9fQ.l-YGcy5btDfTluUO0e0r2pLHwoUpZnxbDkOtovcm5zUvYO-gFLuEs3QpkBLQ8uTVsdi-KWn3G8YfQVL2bzxYEg', 'expTimeForToken': 1651287592, 'appClientId': 'ec2458f2-1e24-41c8-b71b-0e701af7583d', 'AuthUrl': 'https://authorization.cerner.com/tenants/ec2458f2-1e24-41c8-b71b-0e701af7583d/', 'PatientReadUrl': 'https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d/Patient/', 'ConditionReadUrl': 'https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d/Condition/'})
 #     print(conditionResponse)
