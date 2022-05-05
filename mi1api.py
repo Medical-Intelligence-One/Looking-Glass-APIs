@@ -126,10 +126,16 @@ def api_rareDiseaseSearch():
         cui_prob_list.append(item['CUI'])
     
     apidata = fetchData.rareDiseaseSearch(cui_prob_list)
-    result = apidata.to_json(orient="records")
-    parsed = json.loads(result)
-    result_data = jsonify(parsed)
-    return result_data
+
+    # Handle empty results
+    if(apidata.empty):
+        return jsonify([])
+    else:
+        result = apidata.to_json(orient="records")
+        parsed = json.loads(result) 
+        result_data = jsonify(parsed)
+    # result_data.headers.add("Access-Control-Allow-Origin", "*")
+        return result_data
 
 @app.route('/nodedisplay', methods=['GET', 'POST'])
 def api_nodedisplay():

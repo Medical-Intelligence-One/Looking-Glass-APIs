@@ -155,9 +155,6 @@ def rareDiseaseSearch(cui_finding_list):
     // Get lists of positive findings and relationships to positive findings
     WITH d.name AS Disease, d.umls_id AS Disease_CUI, d.definition AS Disease_Definition, d.prevalence_estimate_upper AS Disease_Prevalence, collect(DISTINCT(pos_f.name)) AS Positive_Findings, collect(DISTINCT(pos_f.umls_id)) AS Pos_Find_CUIs, collect(DISTINCT(total_r)) AS All_Find_Rel, collect(DISTINCT(total_f.name)) AS all_dz_findings, collect(DISTINCT(total_f.umls_id)) AS all_dz_CUIs, collect(DISTINCT(given_r)) AS Pos_Find_Rel
 
-    // Get list of approx frequencies for positive findings
-    // WITH collect(given_r.approx_frequency) AS Pos_Find_Rel, Disease, Disease_CUI, Disease_Definition, all_dz_findings, all_dz_CUIs, Disease_Prevalence, Positive_Findings, Pos_Find_CUIs, All_Find_Rel
-
     // Get list of relationships to negative findings
     WITH [x IN All_Find_Rel WHERE NOT x IN Pos_Find_Rel] AS Neg_Find_Rel, Pos_Find_Rel, Disease, Disease_CUI, Disease_Definition, all_dz_findings, all_dz_CUIs, Disease_Prevalence, Positive_Findings, Pos_Find_CUIs
 
@@ -173,20 +170,83 @@ def rareDiseaseSearch(cui_finding_list):
       END AS Neg_Find_Rel_List
 
     // Calculate the sum of approximate frequency values for all negative findings for each disease, changing null to 0 when no relationships to negative findings exist
-    WITH Disease, Disease_CUI, Disease_Definition, Disease_Prevalence, Positive_Findings, Pos_Find_CUIs, Negative_Findings, Neg_Find_CUIs, Pos_Find_Rel_List, sum(toFloat(COALESCE(Neg_Find_Rel_List.approx_frequency, 0))) AS Sum_Neg_Find_Freq, collect(toFloat(Neg_Find_Rel_List.approx_frequency)) AS Neg_Find_Freqs
+    WITH Disease, Disease_CUI, Disease_Definition, Disease_Prevalence, Positive_Findings, Pos_Find_CUIs, Negative_Findings, Neg_Find_CUIs, Pos_Find_Rel_List, sum(toFloat(COALESCE(Neg_Find_Rel_List.approx_frequency, 0))) AS Sum_Neg_Find_Freq, collect(COALESCE(toFloat(Neg_Find_Rel_List.approx_frequency), 'Null')) AS Neg_Find_Freqs
 
     // Calculate the sum of approximate frequency values for all positive findings for each disease
-    WITH Disease, Disease_CUI, Disease_Definition, Disease_Prevalence, Positive_Findings, Pos_Find_CUIs, Negative_Findings, Neg_Find_CUIs, sum(toFloat(Pos_Find_Rel_List.approx_frequency)) AS Sum_Pos_Find_Freq, collect(toFloat(Pos_Find_Rel_List.approx_frequency)) AS Pos_Find_Freqs, Sum_Neg_Find_Freq, Neg_Find_Freqs
+    WITH Disease, Disease_CUI, Disease_Definition, Disease_Prevalence, Positive_Findings, Pos_Find_CUIs, Negative_Findings, Neg_Find_CUIs, sum(toFloat(Pos_Find_Rel_List.approx_frequency)) AS Sum_Pos_Find_Freq, Pos_Find_Rel_List.evidence AS Disease_Finding_Assoc_Evidence, collect(COALESCE(toFloat(Pos_Find_Rel_List.approx_frequency), 'Null')) AS Pos_Find_Freqs, Sum_Neg_Find_Freq, Neg_Find_Freqs
 
     // Multiply the disease prevalence by the difference between the sum of frequencies of positive and negative findings
-    RETURN Disease, Disease_CUI, Disease_Definition, Disease_Prevalence, Positive_Findings, Pos_Find_CUIs, Pos_Find_Freqs, Negative_Findings, Neg_Find_CUIs, Neg_Find_Freqs, ((Sum_Pos_Find_Freq - Sum_Neg_Find_Freq) * -log(Disease_Prevalence)) AS Probability
+    RETURN Disease, Disease_CUI, Disease_Definition, Disease_Prevalence, Positive_Findings, Pos_Find_CUIs, Pos_Find_Freqs, Negative_Findings, Neg_Find_CUIs, Neg_Find_Freqs, ((Sum_Pos_Find_Freq - Sum_Neg_Find_Freq) * -log(Disease_Prevalence)) AS Disease_Probability, Disease_Finding_Assoc_Evidence
 
-    ORDER BY Probability DESC
+    ORDER BY Disease_Probability DESC
     LIMIT 10
     '''.format(cui_finding_list = cui_finding_list)
     data = session.run(query)
     mostLikelyRareDiseases = pd.DataFrame([dict(record) for record in data])
     
+    # Handle empty results without causing an error
+    if(mostLikelyRareDiseases.empty):
+        lst = []
+        df=pd.DataFrame(lst)
+        return df    
+
+    # Transform the evidence column into URLs whenever the evidence comes from PubMed
+    mostLikelyRareDiseases['Disease_Finding_Assoc_Evidence'] = mostLikelyRareDiseases['Disease_Finding_Assoc_Evidence'].str.split('_')
+    evidence_column = []
+    Matched_Findings_Column = []
+    Unmatched_Findings_Column = []
+    
+    for row in mostLikelyRareDiseases.iterrows():
+        
+        # Convert PMIDs into links to their respective PubMed articles
+        evidence_urls = []
+        evidence = row[1]['Disease_Finding_Assoc_Evidence']
+        if evidence is not None:
+            for item in evidence:
+                publication = item.split(':')
+                if publication[0] == 'PMID':
+                    url = 'https://pubmed.ncbi.nlm.nih.gov/'+publication[1]
+                    evidence_urls.append(url)
+                else:
+                    evidence_urls.append(item)
+            evidence_column.append(evidence_urls)
+        else:
+            evidence_column.append(None)
+            
+            
+        # Combine the matched findings for each disease into a list of dictionaries
+        Matched_Name_List = row[1]["Positive_Findings"]
+        Matched_Frequency_List = row[1]["Pos_Find_Freqs"]
+        Matched_CUI_List = row[1]["Pos_Find_CUIs"]
+        Matched_dict_list = []
+        for index, Name in enumerate(Matched_Name_List):
+            Matched_dict = {}
+            Matched_dict['Name'] = Name
+            Matched_dict['Frequency'] = Matched_Frequency_List[index]
+            Matched_dict['CUI'] = Matched_CUI_List[index]
+            Matched_dict_list.append(Matched_dict)
+        
+        Matched_Findings_Column.append(Matched_dict_list)
+        
+        
+        # Combine the unmatched findings for each disease into a list of dictionaries
+        Unmatched_Name_List = row[1]["Negative_Findings"]
+        Unmatched_Frequency_List = row[1]["Neg_Find_Freqs"]
+        Unmatched_CUI_List = row[1]["Neg_Find_CUIs"]
+        Unmatched_dict_list = []
+        for index, Name in enumerate(Unmatched_Name_List):
+            Unmatched_dict = {}
+            Unmatched_dict['Name'] = Name
+            Unmatched_dict['Frequency'] = Unmatched_Frequency_List[index]
+            Unmatched_dict['CUI'] = Unmatched_CUI_List[index]
+            Unmatched_dict_list.append(Unmatched_dict)
+        Unmatched_Findings_Column.append(Unmatched_dict_list)
+            
+    mostLikelyRareDiseases['Disease_Finding_Assoc_Evidence'] = evidence_column
+    mostLikelyRareDiseases['Matched_Findings'] = Matched_Findings_Column
+    mostLikelyRareDiseases['Unmatched_Findings'] = Unmatched_Findings_Column
+    mostLikelyRareDiseases.drop(inplace=True, columns = ['Positive_Findings', 'Pos_Find_Freqs', 'Pos_Find_CUIs', 'Negative_Findings', 'Neg_Find_Freqs', 'Neg_Find_CUIs'])
+
     return mostLikelyRareDiseases
 
 def nodedisplay():
