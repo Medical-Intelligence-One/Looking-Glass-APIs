@@ -1,0 +1,21 @@
+{ "clientIds":
+  [
+    {
+      "mi1ClientId": "123456789",
+      "type": "epic",
+      "appClientId": "eac7c715-24c8-448a-9605-8b7226f468c0",
+      "AuthUrl": "https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token",
+      "PatientReadUrl": "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/Patient/",
+      "ConditionReadUrl": "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/Condition?patient="
+    },
+    {
+      "mi1ClientId": "1122334455",
+      "type": "cerner",
+      "appClientId": "systemaccountid",
+      "AuthUrl": "https://authorization.cerner.com/tenants/ec2458f2-1e24-41c8-b71b-0e701af7583d/",
+      "PatientReadUrl": "https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d/Patient/",
+      "ConditionReadUrl": "https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d/Condition/"
+    }
+  ]
+}
+

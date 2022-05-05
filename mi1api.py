@@ -1,4 +1,4 @@
-import flask
+from operator import imod
 from flask_cors import CORS
 from flask import Flask, redirect , url_for, render_template, request, jsonify
 from flask.wrappers import Response
@@ -9,6 +9,7 @@ import json
 import requests
 import pandas as pd
 import time
+from ehr_apis import getPatientData, getPatientCondition
 
 app = Flask(__name__)
 CORS(app)
@@ -171,9 +172,33 @@ def graphdisplay():
 #     response.headers.add("Access-Control-Allow-Origin", "*")
     return f'<iframe src={iframe_url} name="iframe_a" height="100%" width="100%" title="Iframe Example"></iframe>'
 
+
+
+# FHIR
+@app.route('/PatientData', methods=['POST'])
+def PatientData():
+    data = request.get_json()
+    try:
+        PatientInfo = getPatientData(data['PatientId'], data['MI1ClientID'])
+        return jsonify(PatientInfo)
+    except:
+       return jsonify([])
+   
+    
+@app.route('/PatientConditions', methods=['POST'])
+def PatientConditions():
+    try:
+        response = request.get_json()
+        PatientConditionInfo = getPatientCondition(response["patientId"], response["category"], response["clinical_status"],
+                                                response["MI1ClientID"])
+        # PatientConditionInfo = json.loads(PatientConditionInfo)
+        return jsonify(PatientConditionInfo)
+    except:
+        return jsonify([])
+
 if __name__ == '__main__':
     app.debug = True
-    app.run(host='0.0.0.0')
-#    app.run(host="76.251.77.235", port=5000) #host="0.0.0.0" will make the page accessable
+    # app.run(host='0.0.0.0')
+    app.run(host="76.251.77.235", port=5000) #host="0.0.0.0" will make the page accessable
                             #by going to http://[ip]:5000/ on any computer in 
                             #the network.
