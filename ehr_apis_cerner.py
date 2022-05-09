@@ -71,11 +71,18 @@ def cernerPatient(patientId, filterArr):
     getKeys = cernerPatientData.keys()
     isNameInData = 'name' in getKeys
     isDobInData = 'birthDate' in getKeys
-    if isNameInData and isDobInData:
+    isMRNinData = 'identifier' in getKeys
+    mrn = ""
+    if isNameInData and isDobInData and isMRNinData:
         name = cernerPatientData['name'][0]['text']
         dob = cernerPatientData['birthDate']
+        for i in cernerPatientData['identifier']:
+            if i['system'] == 'urn:oid:2.16.840.1.113883.6.1000':
+                mrn = i['value']
+                break
         sample_var = {
             "Name": name,
+            "MRN": mrn,
             "DOB": dob
         }
         sample_var = [sample_var]
@@ -106,9 +113,9 @@ def cernerCondition(patientId, filterArr):
     return conditionList
 
 
-# if __name__ == '__main__':
-#     response = cernerPatient('12724067', {'type': 'cerner', 'mi1ClientId': '1122334455', 'accessToken': 'eyJraWQiOiIyMDIyLTA0LTI4VDE2OjEzOjE0LjY0Mi5lYyIsInR5cCI6IkpXVCIsImFsZyI6IkVTMjU2In0.eyJpc3MiOiJodHRwczpcL1wvYXV0aG9yaXphdGlvbi5jZXJuZXIuY29tXC8iLCJleHAiOjE2NTEyODc1OTIsImlhdCI6MTY1MTI4Njk5MiwianRpIjoiZThmOGRkNDctMjM2Ni00MWZlLTg0MjctMzRhY2IwY2YwNTk1IiwidXJuOmNlcm5lcjphdXRob3JpemF0aW9uOmNsYWltczp2ZXJzaW9uOjEiOnsidmVyIjoiMS4wIiwicHJvZmlsZXMiOnsic21hcnQtdjEiOnsiYXpzIjoic3lzdGVtXC9PYnNlcnZhdGlvbi5yZWFkIHN5c3RlbVwvQ29uZGl0aW9uLnJlYWQgc3lzdGVtXC9QYXRpZW50LnJlYWQifX0sImNsaWVudCI6eyJuYW1lIjoiTUkxX0Vub2xhX0FQSSIsImlkIjoiNzEwYTIwMWQtZTM0YS00NTFiLTk0OGUtYWUxODQ3MjczYzY4In0sInRlbmFudCI6ImVjMjQ1OGYyLTFlMjQtNDFjOC1iNzFiLTBlNzAxYWY3NTgzZCJ9fQ.l-YGcy5btDfTluUO0e0r2pLHwoUpZnxbDkOtovcm5zUvYO-gFLuEs3QpkBLQ8uTVsdi-KWn3G8YfQVL2bzxYEg', 'expTimeForToken': 1651287592, 'appClientId': 'ec2458f2-1e24-41c8-b71b-0e701af7583d', 'AuthUrl': 'https://authorization.cerner.com/tenants/ec2458f2-1e24-41c8-b71b-0e701af7583d/', 'PatientReadUrl': 'https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d/Patient/', 'ConditionReadUrl': 'https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d/Condition/'})
-#     print(response)
+if __name__ == '__main__':
+    response = cernerPatient('12724067', {'type': 'cerner', 'mi1ClientId': '1122334455', 'accessToken': 'eyJraWQiOiIyMDIyLTA1LTA0VDE3OjA2OjMxLjU0OC5lYyIsInR5cCI6IkpXVCIsImFsZyI6IkVTMjU2In0.eyJpc3MiOiJodHRwczpcL1wvYXV0aG9yaXphdGlvbi5jZXJuZXIuY29tXC8iLCJleHAiOjE2NTE4MzUwODcsImlhdCI6MTY1MTgzNDQ4NywianRpIjoiNWI0ZTk5NzgtOTcyZi00NzgxLWJlZWQtMTM5MDIwYTdiNjI0IiwidXJuOmNlcm5lcjphdXRob3JpemF0aW9uOmNsYWltczp2ZXJzaW9uOjEiOnsidmVyIjoiMS4wIiwicHJvZmlsZXMiOnsic21hcnQtdjEiOnsiYXpzIjoic3lzdGVtXC9PYnNlcnZhdGlvbi5yZWFkIHN5c3RlbVwvQ29uZGl0aW9uLnJlYWQgc3lzdGVtXC9QYXRpZW50LnJlYWQifX0sImNsaWVudCI6eyJuYW1lIjoiTUkxX0Vub2xhX0FQSSIsImlkIjoiNzEwYTIwMWQtZTM0YS00NTFiLTk0OGUtYWUxODQ3MjczYzY4In0sInRlbmFudCI6ImVjMjQ1OGYyLTFlMjQtNDFjOC1iNzFiLTBlNzAxYWY3NTgzZCJ9fQ.wdpp9zbRFCFkteS8sn-W8BPVlcIY_SQzaVpuwXs8ucLlrbpY_ZiOootsFpOI3trhE9c91r4-iCRP9ZNV11Hhlw', 'expTimeForToken': 1651835087, 'appClientId': 'ec2458f2-1e24-41c8-b71b-0e701af7583d', 'AuthUrl': 'https://authorization.cerner.com/tenants/ec2458f2-1e24-41c8-b71b-0e701af7583d/', 'PatientReadUrl': 'https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d/Patient/', 'ConditionReadUrl': 'https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d/Condition/'})
+    print(response)
 
-#     conditionResponse = cernerCondition('p73077203', {'type': 'cerner', 'mi1ClientId': '1122334455', 'accessToken': 'eyJraWQiOiIyMDIyLTA0LTI4VDE2OjEzOjE0LjY0Mi5lYyIsInR5cCI6IkpXVCIsImFsZyI6IkVTMjU2In0.eyJpc3MiOiJodHRwczpcL1wvYXV0aG9yaXphdGlvbi5jZXJuZXIuY29tXC8iLCJleHAiOjE2NTEyODc1OTIsImlhdCI6MTY1MTI4Njk5MiwianRpIjoiZThmOGRkNDctMjM2Ni00MWZlLTg0MjctMzRhY2IwY2YwNTk1IiwidXJuOmNlcm5lcjphdXRob3JpemF0aW9uOmNsYWltczp2ZXJzaW9uOjEiOnsidmVyIjoiMS4wIiwicHJvZmlsZXMiOnsic21hcnQtdjEiOnsiYXpzIjoic3lzdGVtXC9PYnNlcnZhdGlvbi5yZWFkIHN5c3RlbVwvQ29uZGl0aW9uLnJlYWQgc3lzdGVtXC9QYXRpZW50LnJlYWQifX0sImNsaWVudCI6eyJuYW1lIjoiTUkxX0Vub2xhX0FQSSIsImlkIjoiNzEwYTIwMWQtZTM0YS00NTFiLTk0OGUtYWUxODQ3MjczYzY4In0sInRlbmFudCI6ImVjMjQ1OGYyLTFlMjQtNDFjOC1iNzFiLTBlNzAxYWY3NTgzZCJ9fQ.l-YGcy5btDfTluUO0e0r2pLHwoUpZnxbDkOtovcm5zUvYO-gFLuEs3QpkBLQ8uTVsdi-KWn3G8YfQVL2bzxYEg', 'expTimeForToken': 1651287592, 'appClientId': 'ec2458f2-1e24-41c8-b71b-0e701af7583d', 'AuthUrl': 'https://authorization.cerner.com/tenants/ec2458f2-1e24-41c8-b71b-0e701af7583d/', 'PatientReadUrl': 'https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d/Patient/', 'ConditionReadUrl': 'https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d/Condition/'})
-#     print(conditionResponse)
+    # conditionResponse = cernerCondition('p73077203', {'type': 'cerner', 'mi1ClientId': '1122334455', 'accessToken': 'eyJraWQiOiIyMDIyLTA0LTI4VDE2OjEzOjE0LjY0Mi5lYyIsInR5cCI6IkpXVCIsImFsZyI6IkVTMjU2In0.eyJpc3MiOiJodHRwczpcL1wvYXV0aG9yaXphdGlvbi5jZXJuZXIuY29tXC8iLCJleHAiOjE2NTEyODc1OTIsImlhdCI6MTY1MTI4Njk5MiwianRpIjoiZThmOGRkNDctMjM2Ni00MWZlLTg0MjctMzRhY2IwY2YwNTk1IiwidXJuOmNlcm5lcjphdXRob3JpemF0aW9uOmNsYWltczp2ZXJzaW9uOjEiOnsidmVyIjoiMS4wIiwicHJvZmlsZXMiOnsic21hcnQtdjEiOnsiYXpzIjoic3lzdGVtXC9PYnNlcnZhdGlvbi5yZWFkIHN5c3RlbVwvQ29uZGl0aW9uLnJlYWQgc3lzdGVtXC9QYXRpZW50LnJlYWQifX0sImNsaWVudCI6eyJuYW1lIjoiTUkxX0Vub2xhX0FQSSIsImlkIjoiNzEwYTIwMWQtZTM0YS00NTFiLTk0OGUtYWUxODQ3MjczYzY4In0sInRlbmFudCI6ImVjMjQ1OGYyLTFlMjQtNDFjOC1iNzFiLTBlNzAxYWY3NTgzZCJ9fQ.l-YGcy5btDfTluUO0e0r2pLHwoUpZnxbDkOtovcm5zUvYO-gFLuEs3QpkBLQ8uTVsdi-KWn3G8YfQVL2bzxYEg', 'expTimeForToken': 1651287592, 'appClientId': 'ec2458f2-1e24-41c8-b71b-0e701af7583d', 'AuthUrl': 'https://authorization.cerner.com/tenants/ec2458f2-1e24-41c8-b71b-0e701af7583d/', 'PatientReadUrl': 'https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d/Patient/', 'ConditionReadUrl': 'https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d/Condition/'})
+    # print(conditionResponse)

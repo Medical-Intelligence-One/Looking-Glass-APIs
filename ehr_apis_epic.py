@@ -10,6 +10,7 @@ import time
 
 # Assigning global variables
 authDict = []
+
 errorMessage = {
     'error': 'Try again after some time'
 }
@@ -182,7 +183,7 @@ def getPatientData(patientId, mi1ClientId):
             for rowMRN in getMRN:
 
                 getText = rowMRN.find('text')
-                if getText['value'] == "EPI":
+                if getText is not None and getText['value'] == "EPI":
                     mrnValue = rowMRN.find('value')
 
                     patientMRN = mrnValue['value']
@@ -196,6 +197,7 @@ def getPatientData(patientId, mi1ClientId):
                 "MRN": patientMRN,
                 "DOB": patientDOB,
             }
+            print(authDict)
             tempList = [PatientDatainJson]
             return tempList
         except:
@@ -204,6 +206,7 @@ def getPatientData(patientId, mi1ClientId):
     # elif getMessage is cernerMessage:
     elif getType and getMessage['type'] == 'cerner':
         getCernerRes = cernerPatient(patientId, getMessage)
+        print(authDict)
         return getCernerRes
     else:
         return getMessage
@@ -261,6 +264,40 @@ def getPatientCondition(patientId, category, clinical_status, mi1ClientId):
         return getMessage
 
 
+def createClinicalNote(MI1ClientID, patientId, note_type_code, note_content):
+    with open('clinicalNoteTemplate.json', 'r') as template:
+        getData = template.read()
+        getData = getData.replace('#patientId#', patientId)
+        getData = getData.replace('#note_type_code#', note_type_code)
+        getData = getData.replace('#note_content#', note_content)
+        getData = json.loads(getData)
+    getMessage = checkLocalDictAuth(MI1ClientID, patientId)
+    headers = {
+        "Authorization": "Bearer " + getMessage['accessToken'],
+        'Prefer': 'return=representation'
+    }
+
+    responses = requests.post('https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/DocumentReference',
+                              headers=headers, json=getData)
+    
+    convertedData = xmltodict.parse(responses.content)
+    convertedData = json.dumps(convertedData)
+    convertedData = json.loads(convertedData)
+    getBinaryUrl = convertedData['DocumentReference']['content']['attachment']['url']['@value']
+    getBinaryUrl = getBinaryUrl.replace('Binary/', '')
+    if int(responses.status_code) == 201:
+        returnData = [{
+            'StatusCode': responses.status_code,
+            'BinaryUrl': getBinaryUrl,
+        }]
+        return returnData
+    else:
+        return [{
+            'StatusCode': responses.status_code,
+            'BinaryUrl': None,
+        }]
+
+
 # if __name__ == '__main__':
     # # epic
     # PatientInfo = getPatientData("eq081-VQEgP8drUUqCWzHfw3", '123456789')
@@ -276,3 +313,15 @@ def getPatientCondition(patientId, category, clinical_status, mi1ClientId):
     #
     # PatientConditionInfo = getPatientCondition("p73077203", "problem-list-item", "active", '1122334455')
     # print(PatientConditionInfo)
+
+    # Clinical Note
+    # response = createClinicalNote('123456789', "eXbMln3hu0PfFrpv2HgVHyg3", "11488-4", "abcd")
+    # print(response)
+
+    # Clinical Note read
+    # response = readClinicalNote('123456789', 'eXbMln3hu0PfFrpv2HgVHyg3', 'eYuxo145oFk8gq-gXLM8WiA3')
+    # print(response)
+
+    # Clinical Note read all
+    # response = readAllClinicalNOte('123456789', 'eXbMln3hu0PfFrpv2HgVHyg3')
+    # print(response)

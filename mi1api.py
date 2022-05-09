@@ -3,13 +3,14 @@ from flask_cors import CORS
 from flask import Flask, redirect , url_for, render_template, request, jsonify
 from flask.wrappers import Response
 from numpy import roots
+from ehr_apis_epic_read import readAllClinicalNOte
 import fetchData
 from flask import request, jsonify, Response
 import json
 import requests
 import pandas as pd
 import time
-from ehr_apis_epic import getPatientData, getPatientCondition
+from ehr_apis_epic import createClinicalNote, getPatientData, getPatientCondition
 
 app = Flask(__name__)
 CORS(app)
@@ -163,6 +164,27 @@ def PatientConditions():
         return jsonify(PatientConditionInfo)
     except:
         return jsonify([])
+    
+@app.route('/ClinicalNote', methods=['POST'])
+def ClinicalNote():
+    try:
+        response = request.get_json()
+        ClinicalNoteResponse = createClinicalNote(response['MI1ClientID'], response['patientId'],
+                                                  response['note_type_code'], response['note_content'])
+        return jsonify(ClinicalNoteResponse)
+    except:
+        return jsonify([])
+    
+    
+@app.route('/ReadClinicalNotes', methods=['POST'])
+def ReadClinicalNote():
+    try:
+        response = request.get_json()
+        ClinicalNoteRead = readAllClinicalNOte(response['MI1ClientID'], response['patientId'])
+        return str(ClinicalNoteRead)
+    except:
+        return jsonify([])
+    
 
 if __name__ == '__main__':
     app.debug = True

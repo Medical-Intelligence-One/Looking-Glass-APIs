@@ -1,0 +1,26 @@
+{
+    "resourceType": "DocumentReference",
+    "docStatus": "final",
+    "type": {
+        "coding": [{
+            "system": "http://loinc.org",
+            "code": "#note_type_code#",
+            "display": "Clinical Note"
+        }],
+        "text": "Clinical Note"
+    },
+    "subject": {
+        "reference": "Patient/#patientId#"
+    },
+    "content": [{
+        "attachment": {
+            "contentType": "text/plain",
+            "data": "#note_content#"
+        }
+    }],
+    "context": {
+        "encounter": [{
+            "reference": "Encounter/e0EueTd5RhhXyykueyj0Axg3"
+        }]
+    }
+}
