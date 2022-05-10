@@ -176,7 +176,7 @@ def ClinicalNote():
         return jsonify([])
     
     
-@app.route('/ReadClinicalNotes', methods=['POST'])
+@app.route('/ClinicalNotesRead', methods=['POST'])
 def ReadClinicalNote():
     try:
         response = request.get_json()
@@ -188,7 +188,7 @@ def ReadClinicalNote():
 
 if __name__ == '__main__':
     app.debug = True
-    # app.run(host='0.0.0.0')
+    #app.run(host='0.0.0.0')
     app.run(host="76.251.77.235", port=5000) #host="0.0.0.0" will make the page accessable
                             #by going to http://[ip]:5000/ on any computer in 
                             #the network.
