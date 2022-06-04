@@ -1,0 +1,40 @@
+{
+    "resourceType": "DocumentReference",
+    "status": "current",
+    "docStatus": "final",
+    "type": {
+        "coding": [{
+            "system": "https://fhir.cerner.com/ec2458f2-1e24-41c8-b71b-0e701af7583d/codeSet/72",
+            "code": "20732501",
+            "display": "Clinical Note",
+            "userSelected": true
+        }],
+        "text": "Clinical Note"
+    },
+    "subject": {
+        "reference": "Patient/#patientId#"
+    },
+    "author": [{
+        "reference": "Practitioner/#PractitionerReference#"
+    }],
+    "authenticator": {
+        "reference": "Practitioner/#PractitionerReference#"
+    },
+    "content": [{
+        "attachment": {
+            "contentType": "text/plain;charset=utf-8",
+            "data": "#note_content#",
+            "title": "Clinical Note",
+            "creation": "2020-07-29T21:02:04.000Z"
+        }
+    }],
+    "context": {
+        "encounter": [{
+            "reference": "Encounter/#EncounterReference#"
+        }],
+        "period": {
+            "start": "2020-01-01T00:00:00.000Z",
+            "end": "2020-01-01T01:00:00.000Z"
+        }
+    }
+}

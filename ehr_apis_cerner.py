@@ -38,7 +38,7 @@ def Create_Check_Cerner_Authorization(authUrl, accessToken, expTimeForToken):
         if currentEpochTime > expTimeForToken:
             data = {
                 'grant_type': 'client_credentials',
-                'scope': 'system/Observation.read system/Condition.read system/Patient.read'
+                'scope': 'system/Observation.read system/Condition.read system/Binary.read system/Patient.read system/Organization.read system/DiagnosticReport.read system/DocumentReference.read system/DocumentReference.write'
             }
             encodeClient = clientID + ":" + clientSecret
             clientSecret_bytes = encodeClient.encode("ascii")

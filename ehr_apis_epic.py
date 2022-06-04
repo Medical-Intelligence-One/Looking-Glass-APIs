@@ -264,39 +264,71 @@ def getPatientCondition(patientId, category, clinical_status, mi1ClientId):
         return getMessage
 
 
-def createClinicalNote(MI1ClientID, patientId, note_type_code, note_content):
-    with open('clinicalNoteTemplate.json', 'r') as template:
-        getData = template.read()
-        getData = getData.replace('#patientId#', patientId)
-        getData = getData.replace('#note_type_code#', note_type_code)
-        getData = getData.replace('#note_content#', note_content)
-        getData = json.loads(getData)
-    getMessage = checkLocalDictAuth(MI1ClientID, patientId)
-    headers = {
-        "Authorization": "Bearer " + getMessage['accessToken'],
-        'Prefer': 'return=representation'
-    }
+def createClinicalNote(response):
+    getMessage = checkLocalDictAuth(response['MI1ClientID'], response['patientId'])
+    getkeys = getMessage.keys()
+    getType = 'type' in getkeys
+    #Create Clinical Note for EPIC Document Reference
+    if getType and getMessage['type'] == 'epic':
+        
+        with open('clinicalNoteTemplate.json', 'r') as template:
+            getData = template.read()
+            getData = getData.replace('#patientId#', response['patientId'])
+            getData = getData.replace('#note_type_code#', response['note_type_code'])
+            getData = getData.replace('#note_content#', response['note_content'])
+            getData = json.loads(getData)
+        headers = {
+            "Authorization": "Bearer " + getMessage['accessToken'],
+            'Prefer': 'return=representation'
+        }
 
-    responses = requests.post('https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/DocumentReference',
-                              headers=headers, json=getData)
-    
-    convertedData = xmltodict.parse(responses.content)
-    convertedData = json.dumps(convertedData)
-    convertedData = json.loads(convertedData)
-    getBinaryUrl = convertedData['DocumentReference']['content']['attachment']['url']['@value']
-    getBinaryUrl = getBinaryUrl.replace('Binary/', '')
-    if int(responses.status_code) == 201:
-        returnData = [{
-            'StatusCode': responses.status_code,
-            'BinaryUrl': getBinaryUrl,
-        }]
-        return returnData
-    else:
-        return [{
-            'StatusCode': responses.status_code,
-            'BinaryUrl': None,
-        }]
+        responses = requests.post('https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/DocumentReference',
+                                headers=headers, json=getData)
+        
+        convertedData = xmltodict.parse(responses.content)
+        convertedData = json.dumps(convertedData)
+        convertedData = json.loads(convertedData)
+        getBinaryUrl = convertedData['DocumentReference']['content']['attachment']['url']['@value']
+        getBinaryUrl = getBinaryUrl.replace('Binary/', '')
+        if int(responses.status_code) == 201:
+            returnData = [{
+                'StatusCode': responses.status_code,
+                'BinaryUrl': getBinaryUrl,
+            }]
+            return returnData
+        else:
+            return [{
+                'StatusCode': responses.status_code,
+            }]
+    #Create Clinical Note for CERNER Document Reference
+    if getType and getMessage['type'] == 'cerner':
+        
+        with open('cerner_clinical_note.json', 'r') as template:
+            getData = template.read()
+            getData = getData.replace('#patientId#', response['patientId'])
+            getData = getData.replace('#PractitionerReference#', response['practitionerReference'])
+            getData = getData.replace('#note_content#', response['note_content'])
+            getData = getData.replace('#EncounterReference#', response['encounterReference'])
+            getData = json.loads(getData)
+        headers = {
+            "Authorization": "Bearer " + getMessage['accessToken'],
+            'Accept' : "application/fhir+json"
+        }
+        
+        responses = requests.post('https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d/DocumentReference',
+                                headers=headers, json=getData)
 
+        if int(responses.status_code) == 201:
+            returnData = [{
+                'StatusCode': responses.status_code,
+                'Clinical Note' : 'Created',
+                'Location': responses.headers['Location']
+            }]
+            return returnData
+        else:
+            return [{
+                'StatusCode': responses.status_code,
+            }]
 
 # if __name__ == '__main__':
     # # epic

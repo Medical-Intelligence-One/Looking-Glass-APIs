@@ -169,19 +169,20 @@ def PatientConditions():
 def ClinicalNote():
     try:
         response = request.get_json()
-        ClinicalNoteResponse = createClinicalNote(response['MI1ClientID'], response['patientId'],
-                                                  response['note_type_code'], response['note_content'])
+        ClinicalNoteResponse = createClinicalNote(response)
         return jsonify(ClinicalNoteResponse)
     except:
         return jsonify([])
     
     
-@app.route('/ClinicalNotesRead', methods=['POST'])
+@app.route('/ReadClinicalNotes', methods=['POST'])
 def ReadClinicalNote():
     try:
         response = request.get_json()
         ClinicalNoteRead = readAllClinicalNOte(response['MI1ClientID'], response['patientId'])
-        return str(ClinicalNoteRead)
+        return jsonify(
+            returnData = ClinicalNoteRead
+        )
     except:
         return jsonify([])
     
