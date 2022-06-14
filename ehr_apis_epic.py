@@ -7,6 +7,7 @@ from requests.structures import CaseInsensitiveDict
 from ehr_apis_cerner import cernerPatient, cernerCondition, Create_Check_Cerner_Authorization
 import calendar
 import time
+import datetime, base64
 
 # Assigning global variables
 authDict = []
@@ -270,17 +271,21 @@ def createClinicalNote(response):
     getType = 'type' in getkeys
     #Create Clinical Note for EPIC Document Reference
     if getType and getMessage['type'] == 'epic':
+        print(response)
+        encodedBytes = base64.b64encode(response['note_content'].encode("utf-8"))
+        encodedNote = str(encodedBytes, "utf-8")
         
         with open('clinicalNoteTemplate.json', 'r') as template:
             getData = template.read()
             getData = getData.replace('#patientId#', response['patientId'])
             getData = getData.replace('#note_type_code#', response['note_type_code'])
-            getData = getData.replace('#note_content#', response['note_content'])
+            getData = getData.replace('#note_content#', encodedNote)
             getData = json.loads(getData)
         headers = {
             "Authorization": "Bearer " + getMessage['accessToken'],
             'Prefer': 'return=representation'
         }
+        
 
         responses = requests.post('https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/DocumentReference',
                                 headers=headers, json=getData)
@@ -289,11 +294,12 @@ def createClinicalNote(response):
         convertedData = json.dumps(convertedData)
         convertedData = json.loads(convertedData)
         getBinaryUrl = convertedData['DocumentReference']['content']['attachment']['url']['@value']
-        getBinaryUrl = getBinaryUrl.replace('Binary/', '')
+       
         if int(responses.status_code) == 201:
             returnData = [{
                 'StatusCode': responses.status_code,
-                'BinaryUrl': getBinaryUrl,
+                'Clinical Note' : 'Created',
+                'Location': getBinaryUrl
             }]
             return returnData
         else:
@@ -303,12 +309,18 @@ def createClinicalNote(response):
     #Create Clinical Note for CERNER Document Reference
     if getType and getMessage['type'] == 'cerner':
         
+        dateOfCreation = datetime.datetime.now()
+        formattedDate = dateOfCreation.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]+ "Z"
+        
         with open('cerner_clinical_note.json', 'r') as template:
             getData = template.read()
             getData = getData.replace('#patientId#', response['patientId'])
             getData = getData.replace('#PractitionerReference#', response['practitionerReference'])
             getData = getData.replace('#note_content#', response['note_content'])
             getData = getData.replace('#EncounterReference#', response['encounterReference'])
+            getData = getData.replace("#creationDate#",formattedDate)
+            getData = getData.replace("#startDate#",formattedDate)
+            getData = getData.replace("#endDate#",formattedDate)
             getData = json.loads(getData)
         headers = {
             "Authorization": "Bearer " + getMessage['accessToken'],
@@ -329,6 +341,7 @@ def createClinicalNote(response):
             return [{
                 'StatusCode': responses.status_code,
             }]
+
 
 # if __name__ == '__main__':
     # # epic
