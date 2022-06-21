@@ -89,39 +89,66 @@ def readAllClinicalNOte(MI1ClientID, patientId):
         convertedData = xmltodict.parse(responses.content)
         convertedData = json.dumps(convertedData)
         convertedData = json.loads(convertedData)
-        for i in convertedData['Bundle']['entry']:
-            getKeys = i['resource'].keys()
-            checkDocumentReferenceKey = "DocumentReference" in getKeys
+        
+        for i in range(0, len(convertedData['Bundle']['entry']) - 1):
+            if convertedData['Bundle']['entry'][i]['resource']['DocumentReference']['category']['coding']['code']['@value'] == 'clinical-note':
+                # url tag returns value like "Binary/ekAJmRWsOeeVsqjgMnmX-5ZTCqyW.NZW3fvSH8mNXZSg3"
+                urlData =  convertedData['Bundle']['entry'][i]['resource']['DocumentReference']['content']['attachment']['url'][
+                        '@value']
+                urlData = urlData.replace('Binary/','')
+                binaryUrlList.append(urlData)
+
+        binaryReadList = []
+        binaryReadList.append({
+            "PatientId":patientId,
+            "NoteData":[]
+        })
+        
+        for i in range(0, len(binaryUrlList)):
+            lst = []
+            responses = requests.get('https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/Binary/' + binaryUrlList[i],
+                                    headers=headers)
+            BinaryData = BeautifulSoup(responses.content, 'html5lib')
+            getFilter = BinaryData.find('div')
+            for j in getFilter.recursiveChildGenerator():
+                if j.name == 'span':
+                    if len(j.text.strip()) != 0:
+                        lst.append(j.text)
+            # BinaryReadData = []
+
+            BinaryReadData = ''
+            index = -1
+            for j in lst:
+                if len(j.strip()) == len(j):
+                    index = index + 1
+                    BinaryReadData += j+'\n'
+                    # BinaryReadData.append({
+                    #     'ProblemText': j,
+                    #     "Orders": []
+                    # })
+                else:
+                    BinaryReadData  += '\t'+j.strip()+'\n'
+                    # BinaryReadData[index]['Orders'].append({
+                    #     'OrderText': j.strip(),
+                    # })
+            encodedBytes = base64.b64encode(BinaryReadData.encode("utf-8"))
+            encodedNote = str(encodedBytes, "utf-8")
+
+            # binaryReadList = {
+            # "BinaryId":binaryUrlList,
+            # "HTML": responses.content.decode('utf-8'),
+            # "EncodedData": encodedNote
+            # }
             
-            if checkDocumentReferenceKey:
-                fullURLListvar = i['fullUrl']['@value']
-                PractitionerReferencevar = i['resource']['DocumentReference']['author']['reference']['@value']
-                ContentTypevar = i['resource']['DocumentReference']['content']['attachment']['contentType']['@value']
-                ContentUrlvar = i['resource']['DocumentReference']['content']['attachment']['url']['@value']
-                creationDatevar = i['resource']['DocumentReference']['date']['@value']
-                binaryURLId = ContentUrlvar.replace('Binary/','')
-                # getting the data from binary read API
-                responses = requests.get('https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/Binary/'+binaryURLId,
-                headers=headers)
-                base64text = ''
-                convertedData = BeautifulSoup(responses.content.decode('utf8'), 'html5lib')
-                getFilter = convertedData.find('div')
-                for j in getFilter.recursiveChildGenerator():
-                    if j.name == 'span':
-                        if len(j.text.strip()) != 0:
-                            base64text = j.text
-                recordData = {
-                    "creationDate": creationDatevar,
-                    "fullURLList": fullURLListvar,
-                    "PractitionerReference": PractitionerReferencevar,
-                    "ContentType": ContentTypevar,
-                    "ContentUrl": ContentUrlvar,
-                    "DecodedData": base64text
+            recordData = {
+                    "ContentType": 'text/html',
+                    "ContentUrl": binaryUrlList,
+                    "EncodedData":encodedNote
                 }
+            returnData.append(recordData)
 
-                returnData.append(recordData)
         return returnData
-
+    
     if getType and getMessage['type'] == 'cerner':
         
         headersCerner = {
@@ -153,7 +180,7 @@ def readAllClinicalNOte(MI1ClientID, patientId):
                     "PractitionerReference": PractitionerReferencevar,
                     "ContentType": ContentTypevar,
                     "ContentUrl": ContentUrlvar,
-                    "DecodedData":BinaryClinicalNote(ContentUrlvar, MI1ClientID, patientId)
+                    "EncodedData":BinaryClinicalNote(ContentUrlvar, MI1ClientID, patientId)
                 }
                 returnData.append(recordData)
             

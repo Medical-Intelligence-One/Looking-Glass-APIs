@@ -271,15 +271,12 @@ def createClinicalNote(response):
     getType = 'type' in getkeys
     #Create Clinical Note for EPIC Document Reference
     if getType and getMessage['type'] == 'epic':
-        print(response)
-        encodedBytes = base64.b64encode(response['note_content'].encode("utf-8"))
-        encodedNote = str(encodedBytes, "utf-8")
         
         with open('clinicalNoteTemplate.json', 'r') as template:
             getData = template.read()
             getData = getData.replace('#patientId#', response['patientId'])
             getData = getData.replace('#note_type_code#', response['note_type_code'])
-            getData = getData.replace('#note_content#', encodedNote)
+            getData = getData.replace('#note_content#', response['note_content'])
             getData = json.loads(getData)
         headers = {
             "Authorization": "Bearer " + getMessage['accessToken'],
